@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Barcode Scanner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f0;color:#1a1a1a;padding-top:54px}
+.sticky-top{position:fixed;top:0;left:0;right:0;z-index:900;background:#fff;border-bottom:1px solid #ddd;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.sticky-top h1{font-size:17px;font-weight:600;flex:1}
+.save-badge{font-size:11px;color:#3b6d11;background:#eaf3de;border:1px solid #c0dd97;border-radius:6px;padding:3px 8px;display:flex;align-items:center;gap:4px}
+.save-badge .dot{width:6px;height:6px;border-radius:50%;background:#3b6d11}
+.container{max-width:680px;margin:0 auto;padding:1rem;padding-bottom:200px}
+#flashMsg{display:none;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:500;margin-bottom:.75rem;text-align:center}
+#lastScanned{display:none;background:#fff;border:1px solid #c0dd97;border-radius:8px;padding:8px 12px;margin-bottom:.75rem;align-items:center;gap:8px}
+.ls-label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.ls-code{font-family:'Courier New',monospace;font-size:14px;color:#1a1a1a;font-weight:600;flex:1}
+.ls-time{font-size:11px;color:#aaa;white-space:nowrap}
+
+/* Camera section */
+.cam-bar{background:#fff;border:1px solid #ddd;border-radius:12px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cam-bar p{font-size:12px;color:#888;flex:1;min-width:120px}
+.btn-open-cam{background:#1a1a1a;color:#fff;border:none;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer}
+.btn-open-cam:active{background:#333}
+.btn-stop-cam{background:#e74c3c;color:#fff;border:none;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;display:none}
+.btn-stop-cam:active{background:#c0392b}
+
+/* Camera viewer */
+#camBox{display:none;margin-bottom:1rem;border-radius:12px;overflow:hidden;border:1px solid #ddd;background:#000;position:relative}
+#reader{width:100%}
+#reader video{border-radius:0!important}
+#camOverlay{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:13px;text-align:center;padding:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+#camOverlay.ok{background:rgba(40,167,69,.8)}
+.cam-flash{position:absolute;inset:0;background:rgba(60,200,80,.5);opacity:0;pointer-events:none;transition:opacity .05s;z-index:5}
+
+.scan-box{background:#fff;border:1px solid #ddd;border-radius:12px;padding:1rem;margin-bottom:1rem}
+.scan-box>p{font-size:12px;color:#888;margin-bottom:10px}
+.field-group{display:flex;flex-direction:column;gap:4px;position:relative}
+.field-group label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+input[type="text"],input[type="tel"],select{font-size:16px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;background:#fafafa;color:#1a1a1a;outline:none;width:100%;font-family:inherit;-webkit-appearance:none;appearance:none;min-height:44px}
+.select-wrap{position:relative}
+.select-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:#888;font-size:14px}
+input.mono{font-family:'Courier New',monospace}
+input:focus,select:focus{border-color:#378add;box-shadow:0 0 0 3px rgba(55,138,221,.15)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+@media(max-width:380px){.row2{grid-template-columns:1fr}}
+.action-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.btn-act{font-size:13px;padding:10px 14px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;white-space:nowrap;font-family:inherit;border:1px solid #ccc;background:#fff;color:#1a1a1a}
+.btn-save{background:#1a5fa8;color:#fff;border:none;font-weight:600;font-size:14px}
+.btn-save:active{background:#134a85}
+.btn-export{color:#1a5fa8;border-color:#a8cbe8}
+.btn-export:active{background:#eef5fc}
+.btn-act:active{background:#f0f0f0}
+.stats{font-size:12px;color:#888;margin-left:auto}
+.stats strong{color:#1a1a1a}
+.ac-wrap{position:relative}
+.ac-list{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #ccc;border-radius:8px;z-index:500;max-height:200px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ac-list.open{display:block}
+.ac-item{padding:12px;font-size:15px;cursor:pointer;border-bottom:1px solid #f0f0f0;min-height:44px;display:flex;align-items:center}
+.ac-item:last-child{border-bottom:none}
+.ac-item.highlighted,.ac-item:active{background:#eef5fc;color:#1a5fa8}
+.ac-item mark{background:none;color:#1a5fa8;font-weight:600}
+.table-card{background:#fff;border:1px solid #ddd;border-radius:12px;overflow:hidden}
+.table-header{padding:10px 14px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between}
+.table-header span{font-size:13px;font-weight:600}
+.btn-danger{background:#fff;color:#c0392b;border:1px solid #e8b4b0;font-size:12px;padding:6px 12px;border-radius:8px;min-height:36px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer}
+.btn-danger:active{background:#fdf0ef}
+.table-wrap{overflow-x:auto;max-height:300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:8px 10px;text-align:left;font-weight:500;color:#888;background:#f9f9f7;border-bottom:1px solid #eee;white-space:nowrap}
+th.c1{min-width:30px}th.c2{min-width:110px}th.c3{min-width:120px}th.c4{min-width:60px}th.c5{min-width:130px}th.c6{min-width:80px;text-align:right}
+tbody tr:nth-child(even){background:#fafafa}tbody tr.latest{background:#eef5fc}
+td{padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px}
+td.c1{color:#999;font-size:12px}td.c2{font-family:'Courier New',monospace;word-break:break-all}
+td.c4{font-weight:600;color:#1a5fa8}
+td.c6{font-family:'Courier New',monospace;text-align:right}td.empty{color:#ccc}
+.empty-state{padding:2rem;text-align:center;color:#aaa;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="sticky-top">
+  <h1>Barcode Scanner</h1>
+  <div class="save-badge"><span class="dot"></span> Auto-saving</div>
+</div>
+
+<div class="container">
+  <div id="flashMsg"></div>
+
+  <div id="lastScanned">
+    <div style="flex:1"><div class="ls-label">Last scanned</div><div class="ls-code" id="lsCode">—</div></div>
+    <div class="ls-time" id="lsTime"></div>
+  </div>
+
+  <!-- Camera -->
+  <div class="cam-bar">
+    <p>Camera scanner — point at any retail barcode</p>
+    <button class="btn-open-cam" id="openCamBtn">&#128247; Open Camera</button>
+    <button class="btn-stop-cam" id="stopCamBtn">Stop Camera</button>
+  </div>
+
+  <div id="camBox">
+    <div class="cam-flash" id="camFlash"></div>
+    <div id="reader"></div>
+    <div id="camOverlay">&#128247; Point camera at barcode</div>
+  </div>
+
+  <!-- Form -->
+  <div class="scan-box">
+    <p>Hardware scanner or manual entry. Dept &amp; price carry over to next scan.</p>
+    <div class="field-group" style="margin-bottom:8px">
+      <label>Barcode</label>
+      <input type="text" id="scanInput" class="mono" placeholder="Scan or type barcode..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+    </div>
+    <div class="row2" style="margin-top:0;margin-bottom:8px">
+      <div class="field-group ac-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px">
+          <label style="margin-bottom:0">Description</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#1a5fa8;font-weight:600;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="lockDesc" style="width:16px;height:16px;min-height:unset;accent-color:#1a5fa8;cursor:pointer"/>
+            Lock
+          </label>
+        </div>
+        <input type="text" id="descInput" placeholder="e.g. Axe Scent 1" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"/>
+        <div class="ac-list" id="acList"></div>
+      </div>
+      <div class="field-group">
+        <label>Department</label>
+        <div class="select-wrap">
+          <select id="deptSelect">
+            <option value="">-- Select --</option>
+            <option value="1|Premium/Super Premium">1 - Premium/Super Premium</option>
+            <option value="2|General Merch No Tax">2 - General Merch No Tax</option>
+            <option value="3|Cigarettes">3 - Cigarettes</option>
+            <option value="4|VAPE">4 - VAPE</option>
+            <option value="5|RYO">5 - RYO</option>
+            <option value="6|CHEW">6 - CHEW</option>
+            <option value="7|ENERGY DRINK">7 - ENERGY DRINK</option>
+            <option value="8|SODA">8 - SODA</option>
+            <option value="9|WATER">9 - WATER</option>
+            <option value="10|MILK">10 - MILK</option>
+            <option value="11|CANDY">11 - CANDY</option>
+            <option value="12|Juul Device">12 - Juul Device</option>
+            <option value="13|Juul Pods">13 - Juul Pods</option>
+            <option value="14|General Merch Tax">14 - General Merch Tax</option>
+            <option value="15|Peg/Hanging Candy">15 - Peg/Hanging Candy</option>
+            <option value="16|Gum &amp; Mint">16 - Gum &amp; Mint</option>
+            <option value="17|Bakery">17 - Bakery</option>
+            <option value="20|Chips">20 - Chips</option>
+            <option value="21|Automotive">21 - Automotive</option>
+            <option value="22|Protein Bars">22 - Protein Bars</option>
+            <option value="23|Automotive Oil">23 - Automotive Oil</option>
+            <option value="24|Health &amp; Personal Care">24 - Health &amp; Personal Care</option>
+            <option value="25|Electronics &amp; Accessories">25 - Electronics &amp; Accessories</option>
+            <option value="26|Automotive Accessories">26 - Automotive Accessories</option>
+            <option value="44|Disposable">44 - Disposable</option>
+            <option value="45|Cigars">45 - Cigars</option>
+            <option value="46|Alt Nicotine">46 - Alt Nicotine</option>
+            <option value="47|Ice Cream">47 - Ice Cream</option>
+            <option value="48|Rolling Paper">48 - Rolling Paper</option>
+            <option value="49|Smokeless / Chew">49 - Smokeless / Chew</option>
+            <option value="50|Economy/Value Cigarettes">50 - Economy/Value Cigarettes</option>
+            <option value="51|Mid-Level Cigarettes">51 - Mid-Level Cigarettes</option>
+            <option value="52|Premium/Super Premium">52 - Premium/Super Premium</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="field-group" style="margin-bottom:4px">
+      <label>Price ($) — stays for next scan</label>
+      <input type="tel" id="priceInput" placeholder="3.99" inputmode="decimal"/>
+    </div>
+    <div class="action-row">
+      <button class="btn-act btn-save" id="saveBtn">Save Row</button>
+      <button class="btn-act" id="undoBtn">Undo</button>
+      <button class="btn-act btn-export" id="exportBtn">Export CSV</button>
+      <button class="btn-act" id="clearBtn">Clear</button>
+      <span class="stats">Saved: <strong id="totalRows">0</strong></span>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <span>Scanned items</span>
+      <button class="btn-danger" id="clearAllBtn">Clear all</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="c1">#</th><th class="c2">Barcode</th><th class="c3">Description</th>
+          <th class="c4">Dept #</th><th class="c5">Dept Name</th><th class="c6">Price</th>
+        </tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty-state">No items yet — scan a barcode and tap Save Row</div>
+    </div>
+  </div>
+</div>
+
+<!-- html5-qrcode — much better real-world barcode reading than ZXing -->
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+var SK='bi5',HK='bh5',DK='bd5',PK='bp5';
+var scanInput=document.getElementById('scanInput'),descInput=document.getElementById('descInput'),
+    deptSelect=document.getElementById('deptSelect'),priceInput=document.getElementById('priceInput'),
+    acList=document.getElementById('acList'),tableBody=document.getElementById('tableBody'),
+    emptyState=document.getElementById('emptyState'),totalRowsEl=document.getElementById('totalRows'),
+    flashMsgEl=document.getElementById('flashMsg'),
+    openCamBtn=document.getElementById('openCamBtn'),stopCamBtn=document.getElementById('stopCamBtn'),
+    camBox=document.getElementById('camBox'),camOverlay=document.getElementById('camOverlay'),
+    camFlash=document.getElementById('camFlash'),
+    lastScannedEl=document.getElementById('lastScanned'),lsCode=document.getElementById('lsCode'),
+    lsTime=document.getElementById('lsTime');
+
+var items=[],descHistory=[],acHighlight=-1,flashTimer=null;
+var html5Qr=null,cameraOn=false,lastScanTime=0;
+
+function parseDept(val){if(!val)return{num:'',name:''};var p=val.split('|');return{num:p[0]||'',name:p[1]||''};}
+
+// Load storage
+try{
+  var _s=localStorage.getItem(SK);if(_s)items=JSON.parse(_s);
+  var _h=localStorage.getItem(HK);if(_h)descHistory=JSON.parse(_h);
+  var _d=localStorage.getItem(DK);if(_d)deptSelect.value=_d;
+  var _p=localStorage.getItem(PK);if(_p)priceInput.value=_p;
+}catch(e){}
+
+function persist(){try{localStorage.setItem(SK,JSON.stringify(items));localStorage.setItem(HK,JSON.stringify(descHistory));localStorage.setItem(DK,deptSelect.value);localStorage.setItem(PK,priceInput.value);}catch(e){}}
+deptSelect.addEventListener('change',function(){try{localStorage.setItem(DK,deptSelect.value);}catch(e){}});
+priceInput.addEventListener('blur',function(){try{localStorage.setItem(PK,priceInput.value);}catch(e){}});
+
+function beep(){try{var c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=1047;o.type='sine';g.gain.setValueAtTime(0.4,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.18);o.start(c.currentTime);o.stop(c.currentTime+0.18);}catch(e){}}
+
+function showFlash(msg,type){flashMsgEl.textContent=msg;flashMsgEl.style.display='block';flashMsgEl.style.background=type==='error'?'#fdf0ef':'#eaf3de';flashMsgEl.style.color=type==='error'?'#c0392b':'#3b6d11';flashMsgEl.style.border=type==='error'?'1px solid #e8b4b0':'1px solid #c0dd97';clearTimeout(flashTimer);flashTimer=setTimeout(function(){flashMsgEl.style.display='none';},2500);}
+
+function doFlash(){camFlash.style.opacity='1';setTimeout(function(){camFlash.style.opacity='0';},250);}
+
+function updateLastScanned(code){lsCode.textContent=code;lsTime.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});lastScannedEl.style.display='flex';}
+
+// ── Camera using html5-qrcode ─────────────────────────────
+openCamBtn.addEventListener('click',function(){
+  if(typeof Html5Qrcode==='undefined'){showFlash('Scanner loading, try again in a moment','error');return;}
+  if(cameraOn)return;
+
+  camBox.style.display='block';
+  openCamBtn.style.display='none';
+  stopCamBtn.style.display='inline-block';
+  cameraOn=true;
+  camOverlay.textContent='Starting camera...';
+  camOverlay.className='';
+
+  html5Qr=new Html5Qrcode('reader');
+
+  html5Qr.start(
+    {facingMode:'environment'},
+    {
+      fps:10,
+      qrbox:{width:250,height:120},
+      aspectRatio:1.5,
+      disableFlip:false,
+      formatsToSupport:[
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
+    },
+    function(decodedText){
+      var now=Date.now();
+      if(now-lastScanTime<1500)return;
+      lastScanTime=now;
+      beep();
+      if(navigator.vibrate)navigator.vibrate(80);
+      doFlash();
+      camOverlay.textContent='✓ Scanned: '+decodedText;
+      camOverlay.className='ok';
+      setTimeout(function(){camOverlay.textContent='📷 Point camera at barcode';camOverlay.className='';},2000);
+      scanInput.value=decodedText;
+      updateLastScanned(decodedText);
+      setTimeout(function(){descInput.focus();showAC();},200);
+    },
+    function(){/* scan errors are normal, ignore */ }
+  ).then(function(){
+    camOverlay.textContent='📷 Point camera at barcode';
+  }).catch(function(err){
+    showFlash('Camera error: '+(err||'Permission denied'),'error');
+    stopCamera();
+  });
+});
+
+function stopCamera(){
+  if(html5Qr){
+    html5Qr.stop().then(function(){html5Qr.clear();html5Qr=null;}).catch(function(){html5Qr=null;});
+  }
+  cameraOn=false;
+  camBox.style.display='none';
+  openCamBtn.style.display='inline-block';
+  stopCamBtn.style.display='none';
+}
+document.getElementById('stopCamBtn').addEventListener('click',stopCamera);
+
+// Autocomplete
+function getMatches(q){if(!q)return descHistory.slice().reverse().slice(0,8);var ql=q.toLowerCase();return descHistory.filter(function(d){return d.toLowerCase().indexOf(ql)!==-1;}).slice(-20).reverse().slice(0,8);}
+function hlMatch(t,q){if(!q)return t;var i=t.toLowerCase().indexOf(q.toLowerCase());if(i===-1)return t;return t.slice(0,i)+'<mark>'+t.slice(i,i+q.length)+'</mark>'+t.slice(i+q.length);}
+function showAC(){var m=getMatches(descInput.value.trim());acHighlight=-1;if(!m.length){acList.classList.remove('open');return;}acList.innerHTML=m.map(function(x){return'<div class="ac-item" data-val="'+x.replace(/"/g,'&quot;')+'">'+hlMatch(x,descInput.value.trim())+'</div>';}).join('');acList.classList.add('open');var els=acList.querySelectorAll('.ac-item');for(var i=0;i<els.length;i++)(function(el){el.addEventListener('touchstart',function(e){e.preventDefault();pickAC(el.dataset.val);},{passive:false});el.addEventListener('mousedown',function(e){e.preventDefault();pickAC(el.dataset.val);});})(els[i]);}
+function hideAC(){acList.classList.remove('open');}
+function pickAC(v){descInput.value=v;hideAC();deptSelect.focus();}
+descInput.addEventListener('input',showAC);descInput.addEventListener('focus',showAC);descInput.addEventListener('blur',function(){setTimeout(hideAC,200);});
+descInput.addEventListener('keydown',function(e){if(acList.classList.contains('open')){var els=acList.querySelectorAll('.ac-item');if(e.key==='ArrowDown'){e.preventDefault();acHighlight=Math.min(els.length-1,acHighlight+1);for(var i=0;i<els.length;i++)els[i].classList.toggle('highlighted',i===acHighlight);return;}if(e.key==='ArrowUp'){e.preventDefault();acHighlight=Math.max(0,acHighlight-1);for(var i=0;i<els.length;i++)els[i].classList.toggle('highlighted',i===acHighlight);return;}if(e.key==='Enter'&&acHighlight>=0){e.preventDefault();pickAC(els[acHighlight].dataset.val);return;}if(e.key==='Escape'){hideAC();return;}}if(e.key==='Enter'){e.preventDefault();hideAC();deptSelect.focus();}});
+scanInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();descInput.focus();showAC();}});
+deptSelect.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();priceInput.focus();}});
+priceInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();saveRow();}});
+
+function saveRow(){
+  var barcode=scanInput.value.trim();
+  if(!barcode){showFlash('Scan or enter a barcode first','error');return;}
+  var desc=descInput.value.trim(),deptVal=deptSelect.value,dp=parseDept(deptVal);
+  var price=priceInput.value.trim().replace(/[^0-9.]/g,'');
+  items.push({barcode:barcode,desc:desc,deptNum:dp.num,deptName:dp.name,price:price});
+  if(desc&&descHistory.indexOf(desc)===-1)descHistory.push(desc);
+  persist();
+  var n=items.length;
+  var lockDesc=document.getElementById('lockDesc');
+  scanInput.value='';
+  if(!lockDesc||!lockDesc.checked) descInput.value='';
+  hideAC();
+  setTimeout(function(){scanInput.focus();},50);
+  renderTable();
+  showFlash('Row '+n+' saved! Dept & price kept.');
+}
+
+function clearFields(){
+  scanInput.value='';descInput.value='';priceInput.value='';deptSelect.value='';
+  var lockDesc=document.getElementById('lockDesc');
+  if(lockDesc) lockDesc.checked=false;
+  hideAC();try{localStorage.removeItem(DK);localStorage.removeItem(PK);}catch(e){}setTimeout(function(){scanInput.focus();},50);
+}
+
+function renderTable(){
+  tableBody.innerHTML='';emptyState.style.display=items.length?'none':'block';totalRowsEl.textContent=items.length;
+  for(var i=0;i<items.length;i++){
+    var item=items[i],tr=document.createElement('tr');
+    if(i===items.length-1)tr.classList.add('latest');
+    var pt=(item.price&&item.price!=='')?'$'+parseFloat(item.price).toFixed(2):'—';
+    var data=[{cls:'c1',text:i+1,empty:false},{cls:'c2',text:item.barcode,empty:false},{cls:'c3',text:item.desc||'—',empty:!item.desc},{cls:'c4',text:item.deptNum||'—',empty:!item.deptNum},{cls:'c5',text:item.deptName||'—',empty:!item.deptName},{cls:'c6',text:pt,empty:!item.price}];
+    for(var j=0;j<data.length;j++){var td=document.createElement('td');td.className=data[j].cls;td.textContent=data[j].text;if(data[j].empty)td.classList.add('empty');tr.appendChild(td);}
+    tableBody.appendChild(tr);
+  }
+  if(tableBody.lastChild)tableBody.lastChild.scrollIntoView({block:'nearest'});
+}
+
+document.getElementById('saveBtn').addEventListener('click',saveRow);
+document.getElementById('clearBtn').addEventListener('click',clearFields);
+document.getElementById('undoBtn').addEventListener('click',function(){if(!items.length){showFlash('Nothing to undo','error');return;}var r=items.pop();persist();renderTable();showFlash('Removed: '+r.barcode);});
+document.getElementById('clearAllBtn').addEventListener('click',function(){if(!items.length)return;if(!confirm('Clear all items?'))return;items=[];persist();renderTable();clearFields();});
+document.getElementById('exportBtn').addEventListener('click',function(){
+  if(!items.length){showFlash('Nothing to export yet','error');return;}
+  var lines=['#,Barcode,Description,Dept #,Dept Name,Price'];
+  for(var i=0;i<items.length;i++){
+    var item=items[i],desc='"'+(item.desc||'').replace(/"/g,'""')+'"',dname='"'+(item.deptName||'').replace(/"/g,'""')+'"';
+    var price=(item.price&&item.price!=='')?parseFloat(item.price).toFixed(2):'';
+    lines.push([i+1,item.barcode,desc,item.deptNum||'',dname,price].join(','));
+  }
+  var blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='barcodes_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  showFlash('CSV downloaded!');
+});
+
+renderTable();
+scanInput.focus();
+</script>
+</body>
+</html>
