@@ -13,33 +13,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .save-badge .dot{width:6px;height:6px;border-radius:50%;background:#3b6d11}
 .container{max-width:680px;margin:0 auto;padding:1rem;padding-bottom:200px}
 #flashMsg{display:none;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:500;margin-bottom:.75rem;text-align:center}
-#lastScanned{display:none;background:#fff;border:1px solid #c0dd97;border-radius:8px;padding:8px 12px;margin-bottom:.75rem;font-size:13px;align-items:center;gap:8px}
+#lastScanned{display:none;background:#fff;border:1px solid #c0dd97;border-radius:8px;padding:8px 12px;margin-bottom:.75rem;align-items:center;gap:8px}
 .ls-label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
 .ls-code{font-family:'Courier New',monospace;font-size:14px;color:#1a1a1a;font-weight:600;flex:1}
 .ls-time{font-size:11px;color:#aaa;white-space:nowrap}
+
+/* Camera section */
 .cam-bar{background:#fff;border:1px solid #ddd;border-radius:12px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cam-bar p{font-size:12px;color:#888;flex:1;min-width:120px}
 .btn-open-cam{background:#1a1a1a;color:#fff;border:none;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer}
 .btn-open-cam:active{background:#333}
-#libStatus{font-size:11px;padding:3px 8px;border-radius:5px;display:none}
+.btn-stop-cam{background:#e74c3c;color:#fff;border:none;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;display:none}
+.btn-stop-cam:active{background:#c0392b}
 
-/* PiP */
-#pipCam{position:fixed;bottom:20px;right:16px;z-index:950;width:180px;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);border:2px solid #fff;display:none;flex-direction:column;background:#111;touch-action:none;user-select:none}
-#pipCam.active{display:flex}
-.flash-overlay{position:absolute;inset:0;background:rgba(60,200,80,.5);z-index:10;opacity:0;pointer-events:none;transition:opacity .05s}
-#pipCam.flash-green .flash-overlay{opacity:1}
-#pipVideo{width:100%;display:block;height:140px;object-fit:cover;background:#111}
-.pip-line{position:absolute;left:8%;right:8%;height:2px;background:rgba(255,60,60,.9);top:50%;pointer-events:none;animation:pipScan 1.8s ease-in-out infinite}
-@keyframes pipScan{0%,100%{top:25%}50%{top:75%}}
-.pip-line.paused{animation-play-state:paused}
-.pip-bar{display:flex;align-items:center;background:rgba(0,0,0,.85);padding:6px 8px;gap:6px}
-.pip-status{font-size:10px;color:#ccc;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pip-status.ok{color:#6ee87a}
-.pip-status.err{color:#f87171}
-.pip-btn{font-size:11px;padding:4px 8px;border-radius:5px;border:none;cursor:pointer;touch-action:manipulation;min-height:28px;font-family:inherit;-webkit-appearance:none}
-.pip-pause{background:#ffc107;color:#1a1a1a}
-.pip-close{background:#e74c3c;color:#fff}
-.pip-drag{position:absolute;top:0;left:0;right:0;height:22px;cursor:grab;z-index:5}
+/* Camera viewer */
+#camBox{display:none;margin-bottom:1rem;border-radius:12px;overflow:hidden;border:1px solid #ddd;background:#000;position:relative}
+#reader{width:100%}
+#reader video{border-radius:0!important}
+#camOverlay{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:13px;text-align:center;padding:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+#camOverlay.ok{background:rgba(40,167,69,.8)}
+.cam-flash{position:absolute;inset:0;background:rgba(60,200,80,.5);opacity:0;pointer-events:none;transition:opacity .05s;z-index:5}
 
 .scan-box{background:#fff;border:1px solid #ddd;border-radius:12px;padding:1rem;margin-bottom:1rem}
 .scan-box>p{font-size:12px;color:#888;margin-bottom:10px}
@@ -92,31 +85,28 @@ td.c6{font-family:'Courier New',monospace;text-align:right}td.empty{color:#ccc}
   <div class="save-badge"><span class="dot"></span> Auto-saving</div>
 </div>
 
-<div id="pipCam">
-  <div class="pip-drag" id="pipDrag"></div>
-  <div class="flash-overlay"></div>
-  <video id="pipVideo" autoplay playsinline muted></video>
-  <div class="pip-line" id="pipLine"></div>
-  <div class="pip-bar">
-    <span class="pip-status" id="pipStatus">Loading...</span>
-    <button class="pip-btn pip-pause" id="pauseBtn">⏸</button>
-    <button class="pip-btn pip-close" id="closeCamBtn">✕</button>
-  </div>
-</div>
-
 <div class="container">
   <div id="flashMsg"></div>
+
   <div id="lastScanned">
     <div style="flex:1"><div class="ls-label">Last scanned</div><div class="ls-code" id="lsCode">—</div></div>
     <div class="ls-time" id="lsTime"></div>
   </div>
 
-  <div class="cam-bar" id="camOpenBar">
-    <p>Tap to open camera — floats in corner while you fill details</p>
-    <span id="libStatus"></span>
+  <!-- Camera -->
+  <div class="cam-bar">
+    <p>Camera scanner — point at any retail barcode</p>
     <button class="btn-open-cam" id="openCamBtn">&#128247; Open Camera</button>
+    <button class="btn-stop-cam" id="stopCamBtn">Stop Camera</button>
   </div>
 
+  <div id="camBox">
+    <div class="cam-flash" id="camFlash"></div>
+    <div id="reader"></div>
+    <div id="camOverlay">&#128247; Point camera at barcode</div>
+  </div>
+
+  <!-- Form -->
   <div class="scan-box">
     <p>Hardware scanner or manual entry. Dept &amp; price carry over to next scan.</p>
     <div class="field-group" style="margin-bottom:8px">
@@ -192,12 +182,8 @@ td.c6{font-family:'Courier New',monospace;text-align:right}td.empty{color:#ccc}
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th class="c1">#</th>
-          <th class="c2">Barcode</th>
-          <th class="c3">Description</th>
-          <th class="c4">Dept #</th>
-          <th class="c5">Dept Name</th>
-          <th class="c6">Price</th>
+          <th class="c1">#</th><th class="c2">Barcode</th><th class="c3">Description</th>
+          <th class="c4">Dept #</th><th class="c5">Dept Name</th><th class="c6">Price</th>
         </tr></thead>
         <tbody id="tableBody"></tbody>
       </table>
@@ -206,29 +192,25 @@ td.c6{font-family:'Courier New',monospace;text-align:right}td.empty{color:#ccc}
   </div>
 </div>
 
+<!-- html5-qrcode — much better real-world barcode reading than ZXing -->
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
-var SK='bi4',HK='bh4',DK='bd4',PK='bp4';
+var SK='bi5',HK='bh5',DK='bd5',PK='bp5';
 var scanInput=document.getElementById('scanInput'),descInput=document.getElementById('descInput'),
     deptSelect=document.getElementById('deptSelect'),priceInput=document.getElementById('priceInput'),
     acList=document.getElementById('acList'),tableBody=document.getElementById('tableBody'),
     emptyState=document.getElementById('emptyState'),totalRowsEl=document.getElementById('totalRows'),
     flashMsgEl=document.getElementById('flashMsg'),
-    pipCam=document.getElementById('pipCam'),pipVideo=document.getElementById('pipVideo'),
-    pipStatus=document.getElementById('pipStatus'),pipLine=document.getElementById('pipLine'),
-    openCamBtn=document.getElementById('openCamBtn'),camOpenBar=document.getElementById('camOpenBar'),
-    pauseBtn=document.getElementById('pauseBtn'),closeCamBtn=document.getElementById('closeCamBtn'),
+    openCamBtn=document.getElementById('openCamBtn'),stopCamBtn=document.getElementById('stopCamBtn'),
+    camBox=document.getElementById('camBox'),camOverlay=document.getElementById('camOverlay'),
+    camFlash=document.getElementById('camFlash'),
     lastScannedEl=document.getElementById('lastScanned'),lsCode=document.getElementById('lsCode'),
-    lsTime=document.getElementById('lsTime'),libStatus=document.getElementById('libStatus');
+    lsTime=document.getElementById('lsTime');
 
 var items=[],descHistory=[],acHighlight=-1,flashTimer=null;
-var codeReader=null,cameraOn=false,paused=false,lastScanTime=0,libReady=false;
+var html5Qr=null,cameraOn=false,lastScanTime=0;
 
-// Parse dept value "15|Peg/Hanging Candy" → {num:'15', name:'Peg/Hanging Candy'}
-function parseDept(val){
-  if(!val) return {num:'',name:''};
-  var p=val.split('|');
-  return {num:p[0]||'',name:p[1]||''};
-}
+function parseDept(val){if(!val)return{num:'',name:''};var p=val.split('|');return{num:p[0]||'',name:p[1]||''};}
 
 // Load storage
 try{
@@ -246,121 +228,76 @@ function beep(){try{var c=new(window.AudioContext||window.webkitAudioContext)(),
 
 function showFlash(msg,type){flashMsgEl.textContent=msg;flashMsgEl.style.display='block';flashMsgEl.style.background=type==='error'?'#fdf0ef':'#eaf3de';flashMsgEl.style.color=type==='error'?'#c0392b':'#3b6d11';flashMsgEl.style.border=type==='error'?'1px solid #e8b4b0':'1px solid #c0dd97';clearTimeout(flashTimer);flashTimer=setTimeout(function(){flashMsgEl.style.display='none';},2500);}
 
-function pipFlash(){pipCam.classList.add('flash-green');setTimeout(function(){pipCam.classList.remove('flash-green');},300);}
+function doFlash(){camFlash.style.opacity='1';setTimeout(function(){camFlash.style.opacity='0';},250);}
 
 function updateLastScanned(code){lsCode.textContent=code;lsTime.textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});lastScannedEl.style.display='flex';}
 
-// ── Load ZXing — try 3 CDNs ───────────────────────────────
-var cdns=[
-  'https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js',
-  'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js'
-];
-var cdnIdx=0;
-function loadLib(){
-  if(cdnIdx>=cdns.length){
-    libStatus.textContent='Camera lib unavailable — use hardware scanner';
-    libStatus.style.cssText='display:inline-block;font-size:11px;padding:3px 8px;border-radius:5px;background:#fdf0ef;color:#c0392b;border:1px solid #e8b4b0';
-    openCamBtn.disabled=true;openCamBtn.style.opacity='0.5';
-    return;
-  }
-  var sc=document.createElement('script');
-  sc.src=cdns[cdnIdx];
-  sc.onload=function(){libReady=true;libStatus.style.display='none';};
-  sc.onerror=function(){cdnIdx++;loadLib();};
-  document.head.appendChild(sc);
-}
-loadLib();
-
-// ── Camera ────────────────────────────────────────────────
+// ── Camera using html5-qrcode ─────────────────────────────
 openCamBtn.addEventListener('click',function(){
-  if(!libReady){showFlash('Scanner still loading, try again in a moment','error');return;}
+  if(typeof Html5Qrcode==='undefined'){showFlash('Scanner loading, try again in a moment','error');return;}
   if(cameraOn)return;
-  startCamera();
-});
 
-function startCamera(){
-  try{
-    codeReader=new ZXing.BrowserMultiFormatReader();
-  }catch(e){
-    showFlash('Scanner init failed: '+e.message,'error');return;
-  }
+  camBox.style.display='block';
+  openCamBtn.style.display='none';
+  stopCamBtn.style.display='inline-block';
+  cameraOn=true;
+  camOverlay.textContent='Starting camera...';
+  camOverlay.className='';
 
-  pipCam.classList.add('active');
-  camOpenBar.style.display='none';
-  cameraOn=true;paused=false;
-  pipStatus.textContent='Requesting camera...';
-  pipStatus.className='pip-status';
-  pauseBtn.textContent='⏸';
+  html5Qr=new Html5Qrcode('reader');
 
-  // First get the stream ourselves so we can handle errors clearly
-  navigator.mediaDevices.getUserMedia({
-    video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}
-  }).then(function(stream){
-    // Hand stream directly to video element
-    pipVideo.srcObject=stream;
-    pipVideo.play().then(function(){
-      pipStatus.textContent='Scanning...';
-      // Now let ZXing decode from the already-playing video
-      codeReader.decodeFromVideoElement(pipVideo,function(result,err){
-        if(paused)return;
-        if(result){
-          var code=result.getText();
-          var now=Date.now();
-          if(now-lastScanTime<1500)return;
-          lastScanTime=now;
-          beep();
-          if(navigator.vibrate)navigator.vibrate(80);
-          pipFlash();
-          pipStatus.textContent='✓ '+code;
-          pipStatus.className='pip-status ok';
-          setTimeout(function(){if(!paused){pipStatus.textContent='Scanning...';pipStatus.className='pip-status';}},2000);
-          scanInput.value=code;
-          updateLastScanned(code);
-          setTimeout(function(){descInput.focus();showAC();},150);
-        }
-      });
-    }).catch(function(e){
-      pipStatus.textContent='Video error';
-      pipStatus.className='pip-status err';
-      showFlash('Video play error: '+e.message,'error');
-    });
+  html5Qr.start(
+    {facingMode:'environment'},
+    {
+      fps:10,
+      qrbox:{width:250,height:120},
+      aspectRatio:1.5,
+      disableFlip:false,
+      formatsToSupport:[
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
+    },
+    function(decodedText){
+      var now=Date.now();
+      if(now-lastScanTime<1500)return;
+      lastScanTime=now;
+      beep();
+      if(navigator.vibrate)navigator.vibrate(80);
+      doFlash();
+      camOverlay.textContent='✓ Scanned: '+decodedText;
+      camOverlay.className='ok';
+      setTimeout(function(){camOverlay.textContent='📷 Point camera at barcode';camOverlay.className='';},2000);
+      scanInput.value=decodedText;
+      updateLastScanned(decodedText);
+      setTimeout(function(){descInput.focus();showAC();},200);
+    },
+    function(){/* scan errors are normal, ignore */ }
+  ).then(function(){
+    camOverlay.textContent='📷 Point camera at barcode';
   }).catch(function(err){
-    var msg=err.name==='NotAllowedError'?'Camera permission denied — tap Allow when asked':'Camera error: '+(err.message||err.name);
-    pipStatus.textContent='Error';
-    pipStatus.className='pip-status err';
-    showFlash(msg,'error');
+    showFlash('Camera error: '+(err||'Permission denied'),'error');
     stopCamera();
   });
-}
+});
 
 function stopCamera(){
-  if(codeReader){try{codeReader.reset();}catch(e){}codeReader=null;}
-  if(pipVideo.srcObject){pipVideo.srcObject.getTracks().forEach(function(t){t.stop();});pipVideo.srcObject=null;}
-  cameraOn=false;paused=false;
-  pipCam.classList.remove('active');
-  camOpenBar.style.display='flex';
+  if(html5Qr){
+    html5Qr.stop().then(function(){html5Qr.clear();html5Qr=null;}).catch(function(){html5Qr=null;});
+  }
+  cameraOn=false;
+  camBox.style.display='none';
+  openCamBtn.style.display='inline-block';
+  stopCamBtn.style.display='none';
 }
-
-pauseBtn.addEventListener('click',function(){
-  if(!cameraOn)return;
-  paused=!paused;
-  pauseBtn.textContent=paused?'▶':'⏸';
-  pipStatus.textContent=paused?'Paused':'Scanning...';
-  pipStatus.className='pip-status';
-  pipLine.classList.toggle('paused',paused);
-});
-closeCamBtn.addEventListener('click',stopCamera);
-
-// Draggable PiP
-(function(){
-  var drag=document.getElementById('pipDrag'),sX,sY,oL,oT,dr=false;
-  function gp(e){return e.touches?e.touches[0]:e;}
-  function on(e){dr=true;var p=gp(e),r=pipCam.getBoundingClientRect();sX=p.clientX;sY=p.clientY;oL=r.left;oT=r.top;pipCam.style.right='auto';pipCam.style.bottom='auto';pipCam.style.left=oL+'px';pipCam.style.top=oT+'px';e.preventDefault();}
-  function mv(e){if(!dr)return;var p=gp(e),nl=oL+(p.clientX-sX),nt=oT+(p.clientY-sY);nl=Math.max(0,Math.min(window.innerWidth-pipCam.offsetWidth,nl));nt=Math.max(0,Math.min(window.innerHeight-pipCam.offsetHeight,nt));pipCam.style.left=nl+'px';pipCam.style.top=nt+'px';e.preventDefault();}
-  function off(){dr=false;}
-  drag.addEventListener('touchstart',on,{passive:false});drag.addEventListener('touchmove',mv,{passive:false});drag.addEventListener('touchend',off);
-  drag.addEventListener('mousedown',on);document.addEventListener('mousemove',mv);document.addEventListener('mouseup',off);
-})();
+document.getElementById('stopCamBtn').addEventListener('click',stopCamera);
 
 // Autocomplete
 function getMatches(q){if(!q)return descHistory.slice().reverse().slice(0,8);var ql=q.toLowerCase();return descHistory.filter(function(d){return d.toLowerCase().indexOf(ql)!==-1;}).slice(-20).reverse().slice(0,8);}
@@ -374,13 +311,10 @@ scanInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDe
 deptSelect.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();priceInput.focus();}});
 priceInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();saveRow();}});
 
-// Save
 function saveRow(){
   var barcode=scanInput.value.trim();
   if(!barcode){showFlash('Scan or enter a barcode first','error');return;}
-  var desc=descInput.value.trim();
-  var deptVal=deptSelect.value;
-  var dp=parseDept(deptVal);
+  var desc=descInput.value.trim(),deptVal=deptSelect.value,dp=parseDept(deptVal);
   var price=priceInput.value.trim().replace(/[^0-9.]/g,'');
   items.push({barcode:barcode,desc:desc,deptNum:dp.num,deptName:dp.name,price:price});
   if(desc&&descHistory.indexOf(desc)===-1)descHistory.push(desc);
@@ -392,28 +326,15 @@ function saveRow(){
   showFlash('Row '+n+' saved! Dept & price kept.');
 }
 
-function clearFields(){
-  scanInput.value='';descInput.value='';priceInput.value='';deptSelect.value='';hideAC();
-  try{localStorage.removeItem(DK);localStorage.removeItem(PK);}catch(e){}
-  setTimeout(function(){scanInput.focus();},50);
-}
+function clearFields(){scanInput.value='';descInput.value='';priceInput.value='';deptSelect.value='';hideAC();try{localStorage.removeItem(DK);localStorage.removeItem(PK);}catch(e){}setTimeout(function(){scanInput.focus();},50);}
 
 function renderTable(){
-  tableBody.innerHTML='';
-  emptyState.style.display=items.length?'none':'block';
-  totalRowsEl.textContent=items.length;
+  tableBody.innerHTML='';emptyState.style.display=items.length?'none':'block';totalRowsEl.textContent=items.length;
   for(var i=0;i<items.length;i++){
     var item=items[i],tr=document.createElement('tr');
     if(i===items.length-1)tr.classList.add('latest');
     var pt=(item.price&&item.price!=='')?'$'+parseFloat(item.price).toFixed(2):'—';
-    var data=[
-      {cls:'c1',text:i+1,empty:false},
-      {cls:'c2',text:item.barcode,empty:false},
-      {cls:'c3',text:item.desc||'—',empty:!item.desc},
-      {cls:'c4',text:item.deptNum||'—',empty:!item.deptNum},
-      {cls:'c5',text:item.deptName||'—',empty:!item.deptName},
-      {cls:'c6',text:pt,empty:!item.price}
-    ];
+    var data=[{cls:'c1',text:i+1,empty:false},{cls:'c2',text:item.barcode,empty:false},{cls:'c3',text:item.desc||'—',empty:!item.desc},{cls:'c4',text:item.deptNum||'—',empty:!item.deptNum},{cls:'c5',text:item.deptName||'—',empty:!item.deptName},{cls:'c6',text:pt,empty:!item.price}];
     for(var j=0;j<data.length;j++){var td=document.createElement('td');td.className=data[j].cls;td.textContent=data[j].text;if(data[j].empty)td.classList.add('empty');tr.appendChild(td);}
     tableBody.appendChild(tr);
   }
@@ -428,9 +349,7 @@ document.getElementById('exportBtn').addEventListener('click',function(){
   if(!items.length){showFlash('Nothing to export yet','error');return;}
   var lines=['#,Barcode,Description,Dept #,Dept Name,Price'];
   for(var i=0;i<items.length;i++){
-    var item=items[i];
-    var desc='"'+(item.desc||'').replace(/"/g,'""')+'"';
-    var dname='"'+(item.deptName||'').replace(/"/g,'""')+'"';
+    var item=items[i],desc='"'+(item.desc||'').replace(/"/g,'""')+'"',dname='"'+(item.deptName||'').replace(/"/g,'""')+'"';
     var price=(item.price&&item.price!=='')?parseFloat(item.price).toFixed(2):'';
     lines.push([i+1,item.barcode,desc,item.deptNum||'',dname,price].join(','));
   }
