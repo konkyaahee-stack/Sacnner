@@ -1,1 +1,127 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Barcode Scanner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f0;color:#1a1a1a;padding-top:54px}
+.sticky-top{position:fixed;top:0;left:0;right:0;z-index:900;background:#fff;border-bottom:1px solid #ddd;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.sticky-top h1{font-size:17px;font-weight:600;flex:1}
+.save-badge{font-size:11px;color:#3b6d11;background:#eaf3de;border:1px solid #c0dd97;border-radius:6px;padding:3px 8px;display:flex;align-items:center;gap:4px}
+.save-badge .dot{width:6px;height:6px;border-radius:50%;background:#3b6d11}
+.container{max-width:680px;margin:0 auto;padding:1rem;padding-bottom:200px}
+#flashMsg{display:none;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:500;margin-bottom:.75rem;text-align:center}
+#lastScanned{display:none;background:#fff;border:1px solid #c0dd97;border-radius:8px;padding:8px 12px;margin-bottom:.75rem;align-items:center;gap:8px}
+.ls-label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.ls-code{font-family:'Courier New',monospace;font-size:14px;color:#1a1a1a;font-weight:600;flex:1}
+.ls-time{font-size:11px;color:#aaa;white-space:nowrap}
+.cam-bar{background:#fff;border:1px solid #ddd;border-radius:12px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cam-bar p{font-size:12px;color:#888;flex:1;min-width:120px}
+.btn-open-cam{background:#1a1a1a;color:#fff;border:none;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer}
+.btn-stop-cam{background:#e74c3c;color:#fff;border:none;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;display:none}
+#camBox{display:none;margin-bottom:1rem;border-radius:12px;overflow:hidden;border:1px solid #ddd;background:#000;position:relative}
+#reader{width:100%}
+#reader video{border-radius:0!important}
+#camOverlay{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:13px;text-align:center;padding:8px}
+#camOverlay.ok{background:rgba(40,167,69,.8)}
+.cam-flash{position:absolute;inset:0;background:rgba(60,200,80,.5);opacity:0;pointer-events:none;transition:opacity .05s;z-index:5}
+.scan-box{background:#fff;border:1px solid #ddd;border-radius:12px;padding:1rem;margin-bottom:1rem}
+.scan-box>p{font-size:12px;color:#888;margin-bottom:10px}
+.field-group{display:flex;flex-direction:column;gap:4px;position:relative}
+.field-label-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.field-label-row label{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px;flex:1}
+.lock-cb-wrap{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;white-space:nowrap}
+.lock-cb-wrap input[type="checkbox"]{width:15px;height:15px;min-height:unset;accent-color:#1a5fa8;cursor:pointer;margin:0}
+.lock-cb-label{font-size:10px;font-weight:600;color:#888}
+.lock-cb-wrap.locked .lock-cb-label{color:#3b6d11}
+.reset-badge{font-size:10px;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 6px;font-weight:600}
+.stay-badge{font-size:10px;background:#eaf3de;color:#3b6d11;border:1px solid #c0dd97;border-radius:4px;padding:1px 6px;font-weight:600}
+input[type="text"],input[type="tel"],select{font-size:16px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;background:#fafafa;color:#1a1a1a;outline:none;width:100%;font-family:inherit;-webkit-appearance:none;appearance:none;min-height:44px}
+.select-wrap{position:relative}
+.select-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:#888;font-size:14px}
+input.mono{font-family:'Courier New',monospace}
+input:focus,select:focus{border-color:#378add;box-shadow:0 0 0 3px rgba(55,138,221,.15)}
+input.locked-field,select.locked-field{border-color:#c0dd97;background:#f6fbf0}
+.desc-section{background:#f9f9f7;border:1px solid #e8e8e4;border-radius:10px;padding:10px;margin-bottom:8px}
+.desc-section-title{font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.desc-preview{font-size:12px;color:#1a5fa8;background:#eef5fc;border:1px solid #a8cbe8;border-radius:6px;padding:5px 10px;margin-top:8px;min-height:28px;word-break:break-word}
+.desc-preview.empty{color:#aaa;background:#f4f4f0;border-color:#ddd}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:380px){.row2{grid-template-columns:1fr}}
+.flavor-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:8px}
+.flavor-row .field-group{flex:1;min-width:0}
+.btn-save-inline{background:#1a5fa8;color:#fff;border:none;font-weight:600;font-size:14px;padding:10px 16px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;white-space:nowrap;align-self:flex-end;flex-shrink:0}
+.btn-save-inline:active{background:#134a85}
+.action-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.btn-act{font-size:13px;padding:10px 14px;border-radius:8px;min-height:44px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer;white-space:nowrap;font-family:inherit;border:1px solid #ccc;background:#fff;color:#1a1a1a}
+.btn-export{color:#1a5fa8;border-color:#a8cbe8}
+.btn-sheets{color:#1a7f3c;border-color:#a8d5b5}
+.btn-sheets.sending{opacity:.6;pointer-events:none}
+.btn-act:active{background:#f0f0f0}
+.stats{font-size:12px;color:#888;margin-left:auto}
+.stats strong{color:#1a1a1a}
+.ac-wrap{position:relative}
+.ac-list{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #ccc;border-radius:8px;z-index:500;max-height:180px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ac-list.open{display:block}
+.ac-item{padding:12px;font-size:15px;cursor:pointer;border-bottom:1px solid #f0f0f0;min-height:44px;display:flex;align-items:center}
+.ac-item:last-child{border-bottom:none}
+.ac-item.highlighted,.ac-item:active{background:#eef5fc;color:#1a5fa8}
+.ac-item mark{background:none;color:#1a5fa8;font-weight:600}
+.table-card{background:#fff;border:1px solid #ddd;border-radius:12px;overflow:hidden}
+.table-header{padding:10px 14px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between}
+.table-header span{font-size:13px;font-weight:600}
+.btn-danger{background:#fff;color:#c0392b;border:1px solid #e8b4b0;font-size:12px;padding:6px 12px;border-radius:8px;min-height:36px;-webkit-appearance:none;touch-action:manipulation;cursor:pointer}
+.table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:7px 8px;text-align:left;font-weight:500;color:#888;background:#f9f9f7;border-bottom:1px solid #eee;white-space:nowrap}
+tbody tr:nth-child(even){background:#fafafa}
+tbody tr.latest{background:#eef5fc}
+td{padding:7px 8px;border-bottom:1px solid #f0f0f0;font-size:12px;vertical-align:middle}
+td.mono{font-family:'Courier New',monospace;word-break:break-all}
+td.num{text-align:right;font-family:'Courier New',monospace}
+td.dept{font-weight:600;color:#1a5fa8}
+td.empty{color:#ccc}
+.empty-state{padding:2rem;text-align:center;color:#aaa;font-size:13px}
+.del-btn{background:none;border:none;color:#c0392b;font-size:15px;cursor:pointer;padding:4px 6px;border-radius:6px;touch-action:manipulation;min-height:34px;min-width:34px;display:flex;align-items:center;justify-content:center}
+.tmpl-badge{font-size:10px;background:#f0f6ff;color:#1a5fa8;border:1px solid #a8cbe8;border-radius:4px;padding:2px 7px;font-weight:600;display:inline-block;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="sticky-top"><h1>Barcode Scanner</h1><div class="save-badge"><span class="dot"></span>Auto-saving</div></div>
+<div class="container">
+<div id="flashMsg"></div>
+<div id="lastScanned"><div style="flex:1"><div class="ls-label">Last scanned</div><div class="ls-code" id="lsCode">—</div></div><div class="ls-time" id="lsTime"></div></div>
+<div id="camAnchor"></div>
+<div class="cam-bar"><p>Camera scanner — point at any retail barcode</p><button class="btn-open-cam" id="openCamBtn">&#128247; Open Camera</button><button class="btn-stop-cam" id="stopCamBtn">Stop Camera</button></div>
+<div id="camBox"><div class="cam-flash" id="camFlash"></div><div id="reader"></div><div id="camOverlay">&#128247; Point camera at barcode</div></div>
+<div class="scan-box">
+<div class="tmpl-badge">&#128203; CSP Pricebook Format</div>
+<p>Dept, Price, Cost, Inventory &amp; Price Group carry over. Flavor/Type resets each save.</p>
+<div class="field-group" style="margin-bottom:10px"><label>Scan Code (Barcode)</label><input type="text" id="scanInput" class="mono" placeholder="Scan or type barcode..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+<div class="desc-section">
+<div class="desc-section-title">Description — combined in CSV</div>
+<div class="flavor-row">
+<div class="field-group ac-wrap"><div class="field-label-row"><label>Flavor / Type</label><span class="reset-badge">&#8635; Resets on save</span></div><input type="text" id="flavorInput" placeholder="e.g. Nacho Cheese" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"/><div class="ac-list" id="flavorAcList"></div></div>
+<button class="btn-save-inline" id="saveBtn">Save Row</button>
+</div>
+<div class="row2">
+<div class="field-group ac-wrap"><div class="field-label-row"><label>Name</label><label class="lock-cb-wrap" id="nameLockWrap"><input type="checkbox" id="nameLock" checked/><span class="lock-cb-label">Lock</span></label></div><input type="text" id="nameInput" class="locked-field" placeholder="e.g. Doritos" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"/><div class="ac-list" id="nameAcList"></div></div>
+<div class="field-group"><div class="field-label-row"><label>Size</label><label class="lock-cb-wrap" id="sizeLockWrap"><input type="checkbox" id="sizeLock" checked/><span class="lock-cb-label">Lock</span></label></div><input type="text" id="sizeInput" class="locked-field" placeholder="e.g. 2.5oz" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+</div>
+<div id="descPreview" class="desc-preview empty">Full description will appear here...</div>
+</div>
+<div class="row2" style="margin-bottom:8px">
+<div class="field-group"><div class="field-label-row"><label>Price ($)</label><span class="stay-badge">&#128274; Stays</span></div><input type="tel" id="priceInput" class="locked-field" placeholder="3.99" inputmode="decimal"/></div>
+<div class="field-group"><div class="field-label-row"><label>Cost ($)</label><span class="stay-badge">&#128274; Stays</span></div><input type="tel" id="costInput" class="locked-field" placeholder="2.50" inputmode="decimal"/></div>
+</div>
+<div class="row2" style="margin-bottom:8px">
+<div class="field-group"><div class="field-label-row"><label>Department</label><span class="stay-badge">&#128274; Stays</span></div><div class="select-wrap"><select id="deptSelect" class="locked-field"><option value="">-- Select --</option><option value="1|Premium/Super Premium">1 - Premium/Super Premium</option><option value="2|General Merch No Tax">2 - General Merch No Tax</option><option value="3|Cigarettes">3 - Cigarettes</option><option value="4|VAPE">4 - VAPE</option><option value="5|RYO">5 - RYO</option><option value="6|CHEW">6 - CHEW</option><option value="7|ENERGY DRINK">7 - ENERGY DRINK</option><option value="8|SODA">8 - SODA</option><option value="9|WATER">9 - WATER</option><option value="10|MILK">10 - MILK</option><option value="11|CANDY">11 - CANDY</option><option value="12|Juul Device">12 - Juul Device</option><option value="13|Juul Pods">13 - Juul Pods</option><option value="14|General Merch Tax">14 - General Merch Tax</option><option value="15|Peg/Hanging Candy">15 - Peg/Hanging Candy</option><option value="16|Gum &amp; Mint">16 - Gum &amp; Mint</option><option value="17|Bakery">17 - Bakery</option><option value="20|Chips">20 - Chips</option><option value="21|Automotive">21 - Automotive</option><option value="22|Protein Bars">22 - Protein Bars</option><option value="23|Automotive Oil">23 - Automotive Oil</option><option value="24|Health &amp; Personal Care">24 - Health &amp; Personal Care</option><option value="25|Electronics &amp; Accessories">25 - Electronics &amp; Accessories</option><option value="26|Automotive Accessories">26 - Automotive Accessories</option><option value="27|Juice">27 - Juice</option><option value="28|Sports Drinks">28 - Sports Drinks</option><option value="29|Dairy / Protein">29 - Dairy / Protein</option><option value="44|Disposable">44 - Disposable</option><option value="45|Cigars">45 - Cigars</option><option value="46|Alt Nicotine">46 - Alt Nicotine</option><option value="47|Ice Cream">47 - Ice Cream</option><option value="48|Rolling Paper">48 - Rolling Paper</option><option value="49|Smokeless / Chew">49 - Smokeless / Chew</option><option value="50|Economy/Value Cigarettes">50 - Economy/Value Cigarettes</option><option value="51|Mid-Level Cigarettes">51 - Mid-Level Cigarettes</option><option value="52|Premium/Super Premium">52 - Premium/Super Premium</option></select></div></div>
+<div class="field-group"><div class="field-label-row"><label>Current Inventory</label><span class="stay-badge">&#128274; Stays</span></div><div class="select-wrap"><select id="inventorySelect" class="locked-field"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select></div></div>
+</div>
+<div class="field-group" style="margin-bottom:8px"><div class="field-label-row"><label>Price Group Name</label><span class="stay-badge">&#128274; Stays</span></div><input type="text" id="priceGroupInput" class="locked-field" placeholder="e.g. Cigars - Al Capone" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"/></div>
+<div class="action-row"><button class="btn-act" id="undoBtn">Undo</button><button class="btn-act btn-export" id="exportBtn">Export CSV</button><button class="btn-act btn-sheets" id="sheetsBtn">&#128202; Google Sheets</button><button class="btn-act" id="clearBtn">Clear All</button><span class="stats">Saved: <strong id="totalRows">0</strong></span></div>
+</div>
+<div class="table-card"><div class="table-header"><span>Scanned items</span><button class="btn-danger" id="clearAllBtn">Clear all</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Barcode</th><th>Description</th><th>Price</th><th>Cost</th><th>Dept</th><th>Inv</th><th>Del</th></tr></thead><tbody id="tableBody"></tbody></table><div id="emptyState" class="empty-state">No items yet — scan a barcode and tap Save Row</div></div></div>
+</div>
