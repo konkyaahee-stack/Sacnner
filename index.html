@@ -767,6 +767,30 @@ $('clearBtn').addEventListener('click',clearAll);
 $('clearAllBtn').addEventListener('click',function(){if(!items.length)return;if(!confirm('Clear all items? Cannot be undone.'))return;items=[];persist();renderTable();updateStats();clearAll();});
 
 renderTable();updateStats();scanInput.focus();
+
+// ── Bluetooth scanner focus fix ───────────────────────────
+// Keep scanInput focused at all times unless user taps another field
+var focusLocked=false;
+function refocusScan(){if(!focusLocked)scanInput.focus();}
+
+// Refocus every 500ms if no other field is active
+setInterval(function(){
+  var active=document.activeElement;
+  var inputs=[scanInput,flavorInput,nameInput,sizeInput,priceInput,costInput,$('calcCost'),$('calcMarkup'),deptSelect,inventorySelect,priceGroupInput];
+  var anyFocused=inputs.some(function(el){return el&&el===active;});
+  if(!anyFocused&&!focusLocked)scanInput.focus();
+},500);
+
+// When user taps any other field, lock focus away from scanInput
+[flavorInput,nameInput,sizeInput,priceInput,costInput,deptSelect,inventorySelect,priceGroupInput].forEach(function(el){
+  if(!el)return;
+  el.addEventListener('focus',function(){focusLocked=true;});
+  el.addEventListener('blur',function(){setTimeout(function(){focusLocked=false;},300);});
+});
+
+// Also refocus when page becomes visible again (e.g. after scanning)
+document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(refocusScan,200);});
+window.addEventListener('focus',function(){setTimeout(refocusScan,200);});
 })();
 </script>
 </body>
