@@ -171,7 +171,28 @@ td.empty{color:#ccc}
               <span class="lock-cb-label">Lock</span>
             </label>
           </div>
-          <input type="text" id="sizeInput" class="locked-field" placeholder="e.g. 2.5oz, 12-pack" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+          <div style="display:flex;gap:6px">
+            <input type="tel" id="sizeInput" class="locked-field" placeholder="e.g. 2.5" inputmode="decimal" style="flex:1;min-width:0" autocomplete="off"/>
+            <div style="position:relative;width:100px;flex-shrink:0">
+              <select id="sizeUnit" class="locked-field" style="padding-right:28px">
+                <option value="oz">oz</option>
+                <option value="fl oz">fl oz</option>
+                <option value="ml">ml</option>
+                <option value="L">L</option>
+                <option value="lb">lb</option>
+                <option value="g">g</option>
+                <option value="gal">gal</option>
+                <option value="ct">ct</option>
+                <option value="pk">pk</option>
+                <option value="can">can</option>
+                <option value="btl">btl</option>
+                <option value="bag">bag</option>
+                <option value="box">box</option>
+                <option value="ea">ea</option>
+              </select>
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#888;font-size:13px">▾</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -331,7 +352,9 @@ sizeLock.addEventListener('change', function(){ updateLockStyle(sizeLock,sizeLoc
 
 function parseDept(val){ if(!val) return {num:'',name:''}; var p=val.split('|'); return {num:p[0]||'',name:p[1]||''}; }
 function buildDesc(){
-  var p=[], f=flavorInput.value.trim(), n=nameInput.value.trim(), s=sizeInput.value.trim();
+  var p=[], f=flavorInput.value.trim(), n=nameInput.value.trim();
+  var sv=sizeInput.value.trim(), su=$('sizeUnit')?$('sizeUnit').value:'';
+  var s=(sv&&su)?sv+' '+su:sv;
   if(f) p.push(f); if(n) p.push(n); if(s) p.push(s);
   return p.join(' ');
 }
@@ -341,6 +364,7 @@ function updatePreview(){
   else{ descPreview.textContent='Full description will appear here...'; descPreview.className='desc-preview empty'; }
 }
 [flavorInput,nameInput,sizeInput].forEach(function(el){ el.addEventListener('input',updatePreview); });
+if($('sizeUnit')) $('sizeUnit').addEventListener('change', updatePreview);
 
 // Load storage
 try{
@@ -352,7 +376,7 @@ try{
   var iv=localStorage.getItem(IK); if(iv) inventorySelect.value=iv;
   var pg=localStorage.getItem(PGK); if(pg) priceGroupInput.value=pg;
   var n=localStorage.getItem(NK); if(n) nameInput.value=n;
-  var sz=localStorage.getItem(SZK); if(sz) sizeInput.value=sz;
+  var sz=localStorage.getItem(SZK); if(sz){ var szp=sz.split('|'); sizeInput.value=szp[0]||''; if($('sizeUnit')&&szp[1]) $('sizeUnit').value=szp[1]; }
   var nls=localStorage.getItem('nlk'); if(nls!==null) nameLock.checked=nls==='1';
   var sls=localStorage.getItem('slk'); if(sls!==null) sizeLock.checked=sls==='1';
   updateLockStyle(nameLock,nameLockWrap,nameInput);
@@ -370,7 +394,7 @@ function persist(){
     localStorage.setItem(IK,inventorySelect.value);
     localStorage.setItem(PGK,priceGroupInput.value);
     localStorage.setItem(NK,nameInput.value);
-    localStorage.setItem(SZK,sizeInput.value);
+    localStorage.setItem(SZK, sizeInput.value+'|'+($('sizeUnit')?$('sizeUnit').value:'oz'));
   }catch(e){}
 }
 deptSelect.addEventListener('change',function(){ try{localStorage.setItem(DK,deptSelect.value);}catch(e){} });
@@ -379,7 +403,8 @@ priceInput.addEventListener('blur',function(){ try{localStorage.setItem(PK,price
 costInput.addEventListener('blur',function(){ try{localStorage.setItem(CK,costInput.value);}catch(e){} });
 priceGroupInput.addEventListener('blur',function(){ try{localStorage.setItem(PGK,priceGroupInput.value);}catch(e){} });
 nameInput.addEventListener('blur',function(){ try{localStorage.setItem(NK,nameInput.value);}catch(e){} });
-sizeInput.addEventListener('blur',function(){ try{localStorage.setItem(SZK,sizeInput.value);}catch(e){} });
+sizeInput.addEventListener('blur',function(){ try{localStorage.setItem(SZK,sizeInput.value+'|'+($('sizeUnit')?$('sizeUnit').value:'oz'));}catch(e){} });
+if($('sizeUnit')) $('sizeUnit').addEventListener('change',function(){ updatePreview(); try{localStorage.setItem(SZK,sizeInput.value+'|'+$('sizeUnit').value);}catch(e){} });
 
 function beep(){ try{ var c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value=1047; o.type='sine'; g.gain.setValueAtTime(0.4,c.currentTime); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.18); o.start(c.currentTime); o.stop(c.currentTime+0.18); }catch(e){} }
 
@@ -474,7 +499,9 @@ priceGroupInput.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.p
 function saveRow(){
   var barcode=scanInput.value.trim();
   if(!barcode){ showFlash('Scan or enter a barcode first','error'); return; }
-  var flavor=flavorInput.value.trim(), name=nameInput.value.trim(), size=sizeInput.value.trim();
+  var flavor=flavorInput.value.trim(), name=nameInput.value.trim();
+  var sv=sizeInput.value.trim(), su=$('sizeUnit')?$('sizeUnit').value:'';
+  var size=(sv&&su)?sv+' '+su:sv;
   var desc=buildDesc(), dp=parseDept(deptSelect.value);
   var price=priceInput.value.trim().replace(/[^0-9.]/g,'');
   var cost=costInput.value.trim().replace(/[^0-9.]/g,'');
@@ -498,7 +525,7 @@ function saveRow(){
 $('saveBtn').addEventListener('click', saveRow);
 
 function clearAll(){
-  scanInput.value=''; flavorInput.value=''; nameInput.value=''; sizeInput.value='';
+  scanInput.value=''; flavorInput.value=''; nameInput.value=''; sizeInput.value=''; if($('sizeUnit')) $('sizeUnit').value='oz';
   priceInput.value=''; costInput.value=''; priceGroupInput.value='';
   deptSelect.value=''; inventorySelect.value='10';
   nameLock.checked=true; sizeLock.checked=true;
@@ -509,7 +536,7 @@ function clearAll(){
   setTimeout(function(){ scanInput.focus(); },50);
 }
 
-function deleteRow(i){ items.splice(i,1); persist(); renderTable(); showFlash('Row deleted'); }
+function deleteRow(i){ if(!confirm('Delete this item?'))return; items.splice(i,1); persist(); renderTable(); showFlash('Row deleted'); }
 
 function renderTable(){
   tableBody.innerHTML=''; emptyState.style.display=items.length?'none':'block'; totalRowsEl.textContent=items.length;
