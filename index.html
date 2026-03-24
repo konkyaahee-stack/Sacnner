@@ -193,7 +193,13 @@ td.empty{color:var(--text3)}
   <div id="camBox"><div class="cam-flash" id="camFlash"></div><div id="reader"></div><div id="camOverlay">&#128247; Point camera at barcode</div></div>
 
   <div class="scan-box">
-    <div class="tmpl-badge">&#128203; CSP Pricebook Format</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <div class="tmpl-badge">&#128203; CSP Pricebook Format</div>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;font-size:11px;color:var(--text2);font-weight:600">
+        <input type="checkbox" id="upcToggle" checked style="width:15px;height:15px;accent-color:var(--blue);cursor:pointer"/>
+        <span id="upcToggleLabel">&#128269; UPC Lookup ON</span>
+      </label>
+    </div>
     <p>Dept, Price, Cost, Inventory &amp; Price Group carry over. Flavor/Type resets each save.</p>
 
     <div class="field-group" style="margin-bottom:10px">
@@ -512,6 +518,7 @@ openCamBtn.addEventListener('click',function(){
     camOverlay.textContent='✓ '+code;camOverlay.className='ok';
     setTimeout(function(){camOverlay.textContent='📷 Point camera at barcode';camOverlay.className='';},2000);
     scanInput.value=code;updateLastScanned(code);
+    lookupUPC(code);
     setTimeout(function(){flavorInput.focus();showAC(flavorInput,flavorAcList,flavorHistory);flavorInput.scrollIntoView({behavior:'smooth',block:'center'});},250);
   },function(){})
   .then(function(){camOverlay.textContent='📷 Point camera at barcode';})
@@ -546,7 +553,7 @@ priceGroupInput.addEventListener('focus',function(){showAC(priceGroupInput,pgAcL
 priceGroupInput.addEventListener('blur',function(){setTimeout(function(){hideAC(pgAcList);},200);});
 
 // ── Enter key flow ────────────────────────────────────────
-scanInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();flavorInput.focus();showAC(flavorInput,flavorAcList,flavorHistory);}});
+scanInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var code=scanInput.value.trim();if(code)lookupUPC(code);flavorInput.focus();showAC(flavorInput,flavorAcList,flavorHistory);}});
 flavorInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();hideAC(flavorAcList);nameInput.focus();}});
 nameInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();hideAC(nameAcList);sizeInput.focus();}});
 sizeInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();priceInput.focus();}});
@@ -767,6 +774,93 @@ $('clearBtn').addEventListener('click',clearAll);
 $('clearAllBtn').addEventListener('click',function(){if(!items.length)return;if(!confirm('Clear all items? Cannot be undone.'))return;items=[];persist();renderTable();updateStats();clearAll();});
 
 renderTable();updateStats();scanInput.focus();
+
+// ── UPC Lookup ────────────────────────────────────────────
+var upcEnabled=localStorage.getItem('upcOn')!=='0';
+var upcToggle=$('upcToggle');
+upcToggle.checked=upcEnabled;
+$('upcToggleLabel').textContent=upcEnabled?'🔍 UPC Lookup ON':'🔍 UPC Lookup OFF';
+upcToggle.addEventListener('change',function(){
+  upcEnabled=upcToggle.checked;
+  $('upcToggleLabel').textContent=upcEnabled?'🔍 UPC Lookup ON':'🔍 UPC Lookup OFF';
+  try{localStorage.setItem('upcOn',upcEnabled?'1':'0');}catch(e){}
+  if(!upcEnabled&&upcBadge)upcBadge.style.display='none';
+});
+var upcBadge=null;
+function showUpcBadge(msg,type){
+  if(!upcBadge){upcBadge=document.createElement('div');upcBadge.style.cssText='font-size:12px;padding:5px 10px;border-radius:6px;margin-top:6px;font-weight:500;';descPreview.parentNode.insertBefore(upcBadge,descPreview);}
+  upcBadge.textContent=msg;
+  upcBadge.style.background=type==='ok'?'var(--flash-ok-bg)':type==='error'?'var(--flash-err-bg)':'var(--bg)';
+  upcBadge.style.color=type==='ok'?'var(--flash-ok-text)':type==='error'?'var(--flash-err-text)':'var(--text2)';
+  upcBadge.style.border=type==='ok'?'1px solid var(--flash-ok-border)':type==='error'?'1px solid var(--flash-err-border)':'1px solid var(--border)';
+  upcBadge.style.display='block';
+  if(type==='error')setTimeout(function(){if(upcBadge)upcBadge.style.display='none';},3000);
+}
+function toTitleCase(str){return str.replace(/\w\S*/g,function(txt){return txt.charAt(0).toUpperCase()+txt.substr(1).toLowerCase();});}
+function lookupUPC(barcode){
+  if(!upcEnabled)return;
+  if(!barcode||barcode.length<6)return;
+  // Only lookup if name field is empty or not locked
+  if(nameLock.checked&&nameInput.value.trim())return;
+  showUpcBadge('🔍 Looking up product...','');
+  fetch('https://world.openfoodfacts.org/api/v2/product/'+barcode+'.json?fields=product_name,brands,quantity,categories_tags')
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data.status===1&&data.product){
+      var p=data.product;
+      var brand=p.brands?p.brands.split(',')[0].trim():'';
+      var pname=p.product_name||'';
+      var qty=p.quantity||'';
+
+      // Build name: brand + product name
+      var fullName='';
+      if(brand&&pname){
+        // Avoid duplicating brand in product name
+        if(pname.toLowerCase().indexOf(brand.toLowerCase())===0){fullName=toTitleCase(pname);}
+        else{fullName=toTitleCase(brand+' '+pname);}
+      } else {
+        fullName=toTitleCase(brand||pname);
+      }
+
+      // Parse size from quantity field e.g. "330 ml" "12 fl oz"
+      var sizeVal='',sizeUnitVal='oz';
+      if(qty){
+        var qMatch=qty.match(/^([\d.]+)\s*(.+)$/);
+        if(qMatch){
+          sizeVal=qMatch[1];
+          var u=qMatch[2].toLowerCase().trim();
+          // Map to our units
+          if(u==='ml')sizeUnitVal='ml';
+          else if(u==='l'||u==='litre'||u==='liter')sizeUnitVal='L';
+          else if(u==='g'||u==='gr'||u==='gram'||u==='grams')sizeUnitVal='g';
+          else if(u==='kg')sizeUnitVal='kg';
+          else if(u==='fl oz'||u==='fl. oz')sizeUnitVal='fl oz';
+          else if(u==='oz')sizeUnitVal='oz';
+          else if(u==='lb'||u==='lbs')sizeUnitVal='lb';
+          else if(u==='cl'){sizeVal=(parseFloat(sizeVal)*10).toString();sizeUnitVal='ml';}
+          else{sizeVal=qty;sizeUnitVal='';}
+        } else {sizeVal=qty;}
+      }
+
+      // Fill fields if not locked
+      if(fullName){
+        if(!nameLock.checked||!nameInput.value.trim()){nameInput.value=fullName;try{localStorage.setItem(NK,fullName);}catch(e){}}
+      }
+      if(sizeVal&&(!sizeLock.checked||!sizeInput.value.trim())){
+        sizeInput.value=sizeVal;
+        if(sizeUnitVal)sizeUnit.value=sizeUnitVal;
+        try{localStorage.setItem(SZK,sizeVal+'|'+sizeUnitVal);}catch(e){}
+      }
+      updatePreview();
+      showUpcBadge('✓ Found: '+fullName+(qty?' — '+qty:''),'ok');
+    } else {
+      showUpcBadge('Product not found — enter manually','error');
+    }
+  })
+  .catch(function(){
+    showUpcBadge('Lookup failed — check internet','error');
+  });
+}
 
 // ── Bluetooth scanner focus fix ───────────────────────────
 // Keep scanInput focused at all times unless user taps another field
