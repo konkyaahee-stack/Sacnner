@@ -492,7 +492,7 @@ function saveRow(){
   hideAC(nameAcList); hideAC(flavorAcList);
   updatePreview(); renderTable();
   showFlash('Row '+n+' saved!');
-  setTimeout(function(){ window.scrollTo({top:0,behavior:'smooth'}); setTimeout(function(){ scanInput.focus(); },400); },100);
+  setTimeout(function(){ window.scrollTo({top:0,behavior:'smooth'}); },100);
 }
 
 $('saveBtn').addEventListener('click', saveRow);
