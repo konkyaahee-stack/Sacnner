@@ -800,61 +800,74 @@ function toTitleCase(str){return str.replace(/\w\S*/g,function(txt){return txt.c
 function lookupUPC(barcode){
   if(!upcEnabled)return;
   if(!barcode||barcode.length<6)return;
-  // Only lookup if name field is empty or not locked
   if(nameLock.checked&&nameInput.value.trim())return;
   showUpcBadge('🔍 Looking up product...','');
-  fetch('https://world.openfoodfacts.org/api/v2/product/'+barcode+'.json?fields=product_name,brands,quantity,categories_tags')
+  // Try UPCitemdb first (690M products, no key needed for trial)
+  fetch('https://api.upcitemdb.com/prod/trial/lookup?upc='+barcode)
   .then(function(r){return r.json();})
   .then(function(data){
-    if(data.status===1&&data.product){
-      var p=data.product;
-      var brand=p.brands?p.brands.split(',')[0].trim():'';
-      var pname=p.product_name||'';
-      var qty=p.quantity||'';
+    if(data.code==='OK'&&data.items&&data.items.length>0){
+      var item=data.items[0];
+      var title=item.title||'';
+      var brand=item.brand||'';
+      var size=item.size||item.weight||'';
 
-      // Build name: brand + product name
+      // Build clean name
       var fullName='';
-      if(brand&&pname){
-        // Avoid duplicating brand in product name
-        if(pname.toLowerCase().indexOf(brand.toLowerCase())===0){fullName=toTitleCase(pname);}
-        else{fullName=toTitleCase(brand+' '+pname);}
-      } else {
-        fullName=toTitleCase(brand||pname);
+      if(title) fullName=toTitleCase(title);
+      else if(brand) fullName=toTitleCase(brand);
+
+      // Fill name if not locked or empty
+      if(fullName&&(!nameLock.checked||!nameInput.value.trim())){
+        nameInput.value=fullName;
+        try{localStorage.setItem(NK,fullName);}catch(e){}
       }
 
-      // Parse size from quantity field e.g. "330 ml" "12 fl oz"
-      var sizeVal='',sizeUnitVal='oz';
-      if(qty){
-        var qMatch=qty.match(/^([\d.]+)\s*(.+)$/);
+      // Parse size
+      if(size&&(!sizeLock.checked||!sizeInput.value.trim())){
+        var qMatch=size.match(/^([\d.]+)\s*(.+)$/);
         if(qMatch){
-          sizeVal=qMatch[1];
+          sizeInput.value=qMatch[1];
           var u=qMatch[2].toLowerCase().trim();
-          // Map to our units
-          if(u==='ml')sizeUnitVal='ml';
-          else if(u==='l'||u==='litre'||u==='liter')sizeUnitVal='L';
-          else if(u==='g'||u==='gr'||u==='gram'||u==='grams')sizeUnitVal='g';
-          else if(u==='kg')sizeUnitVal='kg';
-          else if(u==='fl oz'||u==='fl. oz')sizeUnitVal='fl oz';
-          else if(u==='oz')sizeUnitVal='oz';
-          else if(u==='lb'||u==='lbs')sizeUnitVal='lb';
-          else if(u==='cl'){sizeVal=(parseFloat(sizeVal)*10).toString();sizeUnitVal='ml';}
-          else{sizeVal=qty;sizeUnitVal='';}
-        } else {sizeVal=qty;}
-      }
-
-      // Fill fields if not locked
-      if(fullName){
-        if(!nameLock.checked||!nameInput.value.trim()){nameInput.value=fullName;try{localStorage.setItem(NK,fullName);}catch(e){}}
-      }
-      if(sizeVal&&(!sizeLock.checked||!sizeInput.value.trim())){
-        sizeInput.value=sizeVal;
-        if(sizeUnitVal)sizeUnit.value=sizeUnitVal;
-        try{localStorage.setItem(SZK,sizeVal+'|'+sizeUnitVal);}catch(e){}
+          if(u==='ml')sizeUnit.value='ml';
+          else if(u==='l'||u==='liter'||u==='litre')sizeUnit.value='L';
+          else if(u==='g'||u==='gram'||u==='grams')sizeUnit.value='g';
+          else if(u==='fl oz'||u==='fl. oz')sizeUnit.value='fl oz';
+          else if(u==='oz')sizeUnit.value='oz';
+          else if(u==='lb'||u==='lbs')sizeUnit.value='lb';
+          else if(u==='gal'||u==='gallon')sizeUnit.value='gal';
+          else{sizeInput.value=size;sizeUnit.value='';}
+        } else {sizeInput.value=size;}
+        try{localStorage.setItem(SZK,sizeInput.value+'|'+sizeUnit.value);}catch(e){}
       }
       updatePreview();
-      showUpcBadge('✓ Found: '+fullName+(qty?' — '+qty:''),'ok');
+      showUpcBadge('✓ Found: '+fullName+(size?' — '+size:''),'ok');
     } else {
-      showUpcBadge('Product not found — enter manually','error');
+      // Fallback to Open Food Facts
+      fetch('https://world.openfoodfacts.org/api/v2/product/'+barcode+'.json?fields=product_name,brands,quantity')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.status===1&&d.product){
+          var p=d.product;
+          var brand=p.brands?p.brands.split(',')[0].trim():'';
+          var pname=p.product_name||'';
+          var qty=p.quantity||'';
+          var fullName='';
+          if(brand&&pname){fullName=toTitleCase(pname.toLowerCase().indexOf(brand.toLowerCase())===0?pname:brand+' '+pname);}
+          else{fullName=toTitleCase(brand||pname);}
+          if(fullName&&(!nameLock.checked||!nameInput.value.trim())){nameInput.value=fullName;try{localStorage.setItem(NK,fullName);}catch(e){}}
+          if(qty&&(!sizeLock.checked||!sizeInput.value.trim())){
+            var qm=qty.match(/^([\d.]+)\s*(.+)$/);
+            if(qm){sizeInput.value=qm[1];var u=qm[2].toLowerCase().trim();if(u==='ml')sizeUnit.value='ml';else if(u==='l')sizeUnit.value='L';else if(u==='fl oz')sizeUnit.value='fl oz';else if(u==='oz')sizeUnit.value='oz';else if(u==='g')sizeUnit.value='g';}
+            else sizeInput.value=qty;
+            try{localStorage.setItem(SZK,sizeInput.value+'|'+sizeUnit.value);}catch(e){}
+          }
+          updatePreview();
+          showUpcBadge('✓ Found: '+fullName+(qty?' — '+qty:''),'ok');
+        } else {
+          showUpcBadge('Product not found — enter manually','error');
+        }
+      }).catch(function(){showUpcBadge('Product not found — enter manually','error');});
     }
   })
   .catch(function(){
