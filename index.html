@@ -625,12 +625,8 @@ function saveRow(){
   hideAC(nameAcList);hideAC(flavorAcList);hideAC(pgAcList);
   updatePreview();renderTable();updateStats();
   setTimeout(function(){
-    // Blur all inputs first so keyboard closes, then scroll to camera
     document.activeElement && document.activeElement.blur();
-    setTimeout(function(){
-      var cam=document.getElementById('camAnchor');
-      if(cam) cam.scrollIntoView({behavior:'smooth',block:'start'});
-    },300);
+    setTimeout(function(){ window.scrollTo({top:0,behavior:'smooth'}); },300);
   },100);
 }
 $('saveBtn').addEventListener('click',saveRow);
