@@ -886,13 +886,13 @@ function refocusScan(){if(!focusLocked)scanInput.focus();}
 // Refocus every 500ms if no other field is active
 setInterval(function(){
   var active=document.activeElement;
-  var inputs=[scanInput,flavorInput,nameInput,sizeInput,priceInput,costInput,$('calcCost'),$('calcMarkup'),deptSelect,inventorySelect,priceGroupInput];
+  var inputs=[scanInput,flavorInput,nameInput,sizeInput,sizeUnit,priceInput,costInput,$('calcCost'),$('calcMarkup'),deptSelect,inventorySelect,priceGroupInput];
   var anyFocused=inputs.some(function(el){return el&&el===active;});
   if(!anyFocused&&!focusLocked)scanInput.focus();
 },500);
 
 // When user taps any other field, lock focus away from scanInput
-[flavorInput,nameInput,sizeInput,priceInput,costInput,deptSelect,inventorySelect,priceGroupInput].forEach(function(el){
+[flavorInput,nameInput,sizeInput,sizeUnit,priceInput,costInput,deptSelect,inventorySelect,priceGroupInput].forEach(function(el){
   if(!el)return;
   el.addEventListener('focus',function(){focusLocked=true;});
   el.addEventListener('blur',function(){setTimeout(function(){focusLocked=false;},300);});
